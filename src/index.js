@@ -274,7 +274,7 @@ function makeVisualModal() {
   return modal;
 }
 function buildCommands() {
-  const textChannel = option => option.setChannelTypes(ChannelType.GuildText);
+  const textChannel = option => option.addChannelTypes(ChannelType.GuildText);
   return [
     new SlashCommandBuilder().setName("panel-status").setDescription("Publica o mueve el panel de estado MTA").addChannelOption(o => textChannel(o.setName("canal").setDescription("Canal del panel"))),
     new SlashCommandBuilder().setName("panel-tickets").setDescription("Publica o mueve el panel de tickets").addChannelOption(o => textChannel(o.setName("canal").setDescription("Canal del panel"))),
