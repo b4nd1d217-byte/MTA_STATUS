@@ -6,6 +6,9 @@ Discord.js v14 + Express + PostgreSQL, with a server-side MTA:SA heartbeat resou
 - Live MTA status panel: server name, current player count, capacity and ONLINE/OFFLINE heartbeat.
 - Bot activity displays `MTA: X/Y`; the panel and activity switch to OFFLINE after 60 seconds without a valid heartbeat.
 - Silent MTA reporting: no in-game chat messages, announcements, notifications or debug spam.
+- MTA JOIN/QUIT audit events sent privately to a configurable Discord log channel.
+- MTA-side `config.lua` for status banner, thumbnail/logo, ticket banner, displayed capacity override and JOIN/QUIT logging toggle.
+- `/configsv ip` saves the server IP/domain directly in PostgreSQL and refreshes the Discord status panel; no MTA config-file edit is needed for the displayed IP.
 - Persistent Discord panels, ticket records, visual settings and warnings (PostgreSQL).
 - Select-menu ticket creation and management; modals for visual settings and adding users. No buttons.
 - Ticket claim, HTML transcript, close/delete workflow and configurable support categories.
@@ -30,6 +33,20 @@ The Blueprint is intentionally set to the Free Web Service plan to avoid creatin
 
 Use a durable external PostgreSQL database for production. Render Free Postgres expires after 30 days, so do not treat it as permanent storage. The app requires `DATABASE_URL` and refuses to start without it.
 
+## MTA configuration and JOIN/QUIT logs
+
+The resource loads `mta-script/config.lua` before `server.lua`. Edit these values:
+
+- `bannerStatus`: direct HTTPS URL for the large status panel image.
+- `logoUrl`: direct HTTPS URL for the small thumbnail/logo.
+- `bannerTickets`: direct HTTPS URL for the tickets panel image.
+- `maxPlayersOverride`: `0` uses the real `getMaxPlayers()` value; a positive value intentionally overrides the capacity displayed in Discord.
+- `sendJoinQuitLogs`: `true` sends JOIN/QUIT events to the configured Discord log channel; `false` disables those events.
+
+The MTA resource posts the configured images with its authenticated heartbeat. The bot validates HTTPS URLs and stores them in PostgreSQL, then refreshes the persistent panels. Leave image URLs blank if you prefer to manage images with `/editar-visual` in Discord. The IP shown in the panel is configured independently with `/configsv ip`.
+
+In Discord, run `/config-logs`, choose the channel and select the type `JOIN / QUIT MTA`. Run it again with type `General / moderación` to configure the separate moderation/ticket log channel. The MTA bridge never writes JOIN/QUIT messages into in-game chat.
+
 ## MTA resource install
 Copy `mta-script/` into the server's `resources` folder, preferably as resource `mta-status`, then add `<resource src="mta-status" startup="1" protected="1" />` to `mtaserver.conf`.
 Configure the resource settings:
@@ -47,7 +64,7 @@ The Lua file gets the server name, current player count and max players directly
 - Keep Discord bot permissions to the minimum required.
 
 ## Commands
-Configuration: `/panel-status`, `/panel-tickets`, `/config-logs`, `/editar-visual`, `/ticket-add-opcion`, `/ticket-remove-opcion`.
+Configuration: `/panel-status`, `/panel-tickets`, `/config-logs` (choose General or JOIN/QUIT MTA), `/configsv ip`, `/editar-visual`, `/ticket-add-opcion`, `/ticket-remove-opcion`.
 Moderation: `/ban`, `/kick`, `/timeout`, `/clear`, `/warn`.
 
 A bot restart marks MTA offline until the next valid heartbeat, even when the last saved server metadata remains available.
