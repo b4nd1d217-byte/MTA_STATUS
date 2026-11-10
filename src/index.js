@@ -14,7 +14,7 @@ const {
   TextInputBuilder, TextInputStyle
 } = require("discord.js");
 
-const required = ["DISCORD_TOKEN", "CLIENT_ID", "API_SECRET", "DATABASE_URL"];
+const required = ["DISCORD_TOKEN", "API_SECRET", "DATABASE_URL"];
 for (const name of required) {
   if (!process.env[name]) throw new Error("Missing required environment variable: " + name);
 }
@@ -312,8 +312,8 @@ function buildCommands() {
 async function registerCommands() {
   const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
   const body = buildCommands();
-  if (process.env.GUILD_ID) await rest.put(Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID), { body });
-  else await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body });
+  if (process.env.GUILD_ID) await rest.put(Routes.applicationGuildCommands(client.application.id, process.env.GUILD_ID), { body });
+  else await rest.put(Routes.applicationCommands(client.application.id), { body });
 }
 async function executeCommand(i) {
   const name = i.commandName;
