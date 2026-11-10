@@ -1,0 +1,3 @@
+Upload the supplied DRIP X SHOP GIF here as dripx-shop-logo.gif.
+Then set Render LOGO_URL to https://YOUR-SERVICE.onrender.com/assets/dripx-shop-logo.gif.
+The source binary is not included in this text-only commit.
