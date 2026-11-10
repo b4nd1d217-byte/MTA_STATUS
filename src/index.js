@@ -312,8 +312,10 @@ function buildCommands() {
 async function registerCommands() {
   const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
   const body = buildCommands();
-  if (process.env.GUILD_ID) await rest.put(Routes.applicationGuildCommands(client.application.id, process.env.GUILD_ID), { body });
-  else await rest.put(Routes.applicationCommands(client.application.id), { body });
+  // Register the complete command list globally so every installed server sees it
+  // in Discord's "/" command picker. Global commands can take some time to propagate.
+  await rest.put(Routes.applicationCommands(client.application.id), { body });
+  console.log("Registered " + body.length + " global slash commands: " + body.map(c => "/" + c.name).join(", "));
 }
 async function executeCommand(i) {
   const name = i.commandName;
