@@ -34,7 +34,8 @@ The Lua file gets the server name, current player count and max players directly
 
 ## Security boundaries
 - The MTA bridge exposes no custom trigger event and has no client-side script or exported remote functions.
-- The optional flood guard only addresses excessive `triggerServerEvent` traffic detected by MTA's built-in threshold. It does **not** automatically audit or repair vulnerable trigger handlers in your other resources. Those must independently validate the `client` identity, ACL permissions and all client-supplied parameters.
+- The optional flood guard only addresses excessive `triggerServerEvent` traffic detected by MTA's built-in threshold (build r22313+). To allow its repeated-abuse kick action, approve the resource ACL request for `function.kickPlayer` (for a resource folder named `mta-status`, run `aclrequest allow mta-status function.kickPlayer` in the server console). Without that permission, it deliberately does not attempt a kick or emit access-denied debug messages.
+- This guard does **not** automatically audit or repair vulnerable trigger handlers in your other resources. Those must independently validate the global `client` identity, ACL permissions and every client-supplied parameter; never trust `source` or client arguments as proof of identity.
 - Do not put secrets in client-side Lua, Git, public screenshots or chat.
 - Use HTTPS only and rotate `API_SECRET` immediately if it is exposed.
 - Keep Discord bot permissions to the minimum required.
