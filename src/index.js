@@ -564,13 +564,17 @@ app.post("/api/mta-status", async (req, res) => {
   runtime.lastHeartbeatAt = Date.now();
   runtime.mta = { serverName, players, maxPlayers };
   const visual = await getVisual();
+  let visualChanged = false;
   for (const field of ["bannerStatus", "logoUrl", "bannerTickets"]) {
     const candidate = cleanText(body[field], 500);
-    if (candidate && /^https:\/\//i.test(candidate)) visual[field] = candidate;
+    if (candidate && /^https:\/\//i.test(candidate) && visual[field] !== candidate) {
+      visual[field] = candidate;
+      visualChanged = true;
+    }
   }
-  if (Object.keys(visual).length) await setJson("visual", visual);
+  if (visualChanged) await setJson("visual", visual);
   await setJson("mta_latest", { ...runtime.mta, receivedAt: runtime.lastHeartbeatAt });
-  await Promise.all([refreshStatusPanel(), updatePresence()]);
+  await Promise.all([refreshStatusPanel(), updatePresence(), ...(visualChanged ? [refreshTicketPanel()] : [])]);
   return res.status(200).json({ accepted: true, online: true });
 });
 app.post("/api/mta-event", async (req, res) => {
