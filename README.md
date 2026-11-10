@@ -24,6 +24,12 @@ Discord.js v14 + Express + PostgreSQL, with a server-side MTA:SA heartbeat resou
 7. Upload your supplied GIF as `public/assets/dripx-shop-logo.gif`, then set `LOGO_URL` to `https://YOUR-RENDER-HOST/assets/dripx-shop-logo.gif`. The original binary is available from the conversation attachment; it cannot be committed by the connected text-file GitHub operation.
 8. Copy the same API secret into the MTA resource setting `apiSecret`; set `apiUrl` to `https://YOUR-RENDER-HOST/api/mta-status`.
 
+## Availability and storage on Render Free
+
+The Blueprint is intentionally set to the Free Web Service plan to avoid creating a paid service without your approval. The MTA heartbeat every 30 seconds keeps the web service receiving traffic while the game server is up. If the MTA server stays offline, Render Free spins the web service down after 15 minutes without inbound traffic; the Discord bot then disconnects and cannot keep monitoring continuously until a new request wakes it. Upgrade the web service to an always-on paid plan for continuous Discord presence and offline monitoring.
+
+Use a durable external PostgreSQL database for production. Render Free Postgres expires after 30 days, so do not treat it as permanent storage. The app requires `DATABASE_URL` and refuses to start without it.
+
 ## MTA resource install
 Copy `mta-script/` into the server's `resources` folder, preferably as resource `mta-status`, then add `<resource src="mta-status" startup="1" protected="1" />` to `mtaserver.conf`.
 Configure the resource settings:
