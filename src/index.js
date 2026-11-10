@@ -7,7 +7,7 @@ const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const { Pool } = require("pg");
 const {
-  ActionRowBuilder, ActivityType, AttachmentBuilder, ChannelType, Client,
+  ActionRowBuilder, ActivityType, AttachmentBuilder, ChannelType, Client, Partials,
   EmbedBuilder, GatewayIntentBits, ModalBuilder, PermissionFlagsBits,
   REST, Routes, SlashCommandBuilder, StringSelectMenuBuilder,
   TextInputBuilder, TextInputStyle
@@ -28,7 +28,8 @@ const pool = new Pool({
 });
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
+  partials: [Partials.Message]
 });
 
 const runtime = { lastHeartbeatAt: 0, mta: null };
@@ -202,17 +203,20 @@ async function updatePresence() {
   });
 }
 async function recreateDeletedPanel(message) {
-  if (!message.guild || !message.channel) return;
+  const channelId = message.channelId || message.channel?.id;
+  if (!channelId) return;
   for (const key of ["panel_status", "panel_tickets"]) {
     const panel = await getJson(key, null);
-    if (panel?.messageId !== message.id || panel?.channelId !== message.channel.id) continue;
+    if (panel?.messageId !== message.id || panel?.channelId !== channelId) continue;
+    const channel = await client.channels.fetch(panel.channelId).catch(() => null);
+    if (!channel?.isTextBased()) continue;
     const fresh = key === "panel_status"
-      ? await message.channel.send({ embeds: [await makeStatusEmbed()] })
-      : await message.channel.send({
+      ? await channel.send({ embeds: [await makeStatusEmbed()] })
+      : await channel.send({
           embeds: [await makeTicketPanelEmbed()],
           components: [makeTicketMenu(await getJson("ticket_categories", DEFAULT_CATEGORIES))]
         });
-    await setJson(key, { channelId: fresh.channel.id, messageId: fresh.id });
+    await setJson(key, { channelId: channel.id, messageId: fresh.id });
   }
 }
 function htmlEscape(value) {
