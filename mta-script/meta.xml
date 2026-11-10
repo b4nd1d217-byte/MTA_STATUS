@@ -5,6 +5,10 @@
     <script src="server.lua" type="server" />
     <script src="security.lua" type="server" />
 
+    <aclrequest>
+        <right name="function.kickPlayer" access="true" />
+    </aclrequest>
+
     <!-- Server-side resource settings. Never copy the secret into client-side files. -->
     <settings>
         <setting name="*apiUrl" value="" friendlyname="MTA Status API URL" />
