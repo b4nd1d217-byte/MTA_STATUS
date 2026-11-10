@@ -15,15 +15,17 @@ services:
         sync: false
       - key: CLIENT_ID
         sync: false
-      - key: GUILD_ID
-        sync: false
       - key: API_SECRET
         sync: false
       - key: DATABASE_URL
         sync: false
+      - key: GUILD_ID
+        value: ""
       - key: PGSSL
         value: "true"
+      - key: MTA_API_SECRET
+        value: ""
       - key: LOGO_URL
-        sync: false
+        value: ""
       - key: ADMIN_USER_IDS
-        sync: false
+        value: ""
