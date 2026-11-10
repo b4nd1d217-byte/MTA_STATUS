@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: mta-status-manager
+    runtime: node
+    plan: free
+    branch: main
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: CLIENT_ID
+        sync: false
+      - key: GUILD_ID
+        sync: false
+      - key: API_SECRET
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: PGSSL
+        value: "true"
+      - key: LOGO_URL
+        sync: false
+      - key: ADMIN_USER_IDS
+        sync: false
