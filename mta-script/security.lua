@@ -27,7 +27,7 @@ local function onTriggerThreshold(eventName)
     if entry.hits >= KICK_AFTER_THRESHOLD_HITS then
         hitWindows[player] = nil
         -- ACL is checked first: never generate access-denied debug noise.
-        if hasObjectPermissionTo(resourceRoot, "function.kickPlayer", true) then
+        if hasObjectPermissionTo(getThisResource(), "function.kickPlayer", true) then
             kickPlayer(player, "DRIP X SHOP Security", "Repeated remote event flooding")
         end
     end
