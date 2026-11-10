@@ -2,6 +2,7 @@ require("dotenv").config();
 
 const crypto = require("node:crypto");
 const path = require("node:path");
+const net = require("node:net");
 const express = require("express");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
@@ -112,6 +113,8 @@ async function makeStatusEmbed() {
     )
     .setFooter({ text: "DRIP X SHOP · MTA STATUS" })
     .setTimestamp(new Date());
+  const serverIp = await getJson("server_ip", null);
+  if (serverIp) embed.addFields({ name: "IP del servidor", value: cleanText(serverIp, 100), inline: false });
   const logo = logoUrl(visual);
   if (logo) embed.setThumbnail(logo);
   if (visual.bannerStatus && /^https:\/\//i.test(visual.bannerStatus)) embed.setImage(visual.bannerStatus);
@@ -275,7 +278,12 @@ function buildCommands() {
   return [
     new SlashCommandBuilder().setName("panel-status").setDescription("Publica o mueve el panel de estado MTA").addChannelOption(o => textChannel(o.setName("canal").setDescription("Canal del panel"))),
     new SlashCommandBuilder().setName("panel-tickets").setDescription("Publica o mueve el panel de tickets").addChannelOption(o => textChannel(o.setName("canal").setDescription("Canal del panel"))),
-    new SlashCommandBuilder().setName("config-logs").setDescription("Configura el canal de logs").addChannelOption(o => textChannel(o.setName("canal").setDescription("Canal de registros").setRequired(true))),
+    new SlashCommandBuilder().setName("config-logs").setDescription("Configura los canales de registros")
+      .addChannelOption(o => textChannel(o.setName("canal").setDescription("Canal de registros").setRequired(true)))
+      .addStringOption(o => o.setName("tipo").setDescription("Tipo de registro").setRequired(false)
+        .addChoices({ name: "General / moderación", value: "general" }, { name: "JOIN / QUIT MTA", value: "joinquit" })),
+    new SlashCommandBuilder().setName("configsv").setDescription("Configura la IP del servidor MTA en el panel")
+      .addStringOption(o => o.setName("ip").setDescription("IP o dominio público del servidor MTA").setRequired(true).setMaxLength(253)),
     new SlashCommandBuilder().setName("editar-visual").setDescription("Edita banners, logo y color de los embeds"),
     new SlashCommandBuilder().setName("ticket-add-opcion").setDescription("Añade una categoría al menú de tickets")
       .addStringOption(o => o.setName("nombre").setDescription("Nombre visible").setRequired(true))
@@ -309,7 +317,7 @@ async function registerCommands() {
 }
 async function executeCommand(i) {
   const name = i.commandName;
-  const adminCommands = ["panel-status", "panel-tickets", "config-logs", "editar-visual", "ticket-add-opcion", "ticket-remove-opcion"];
+  const adminCommands = ["panel-status", "panel-tickets", "config-logs", "configsv", "editar-visual", "ticket-add-opcion", "ticket-remove-opcion"];
   if (adminCommands.includes(name) && !isAdmin(i)) return i.reply({ content: "Necesitas permisos de administrador.", ephemeral: true });
   if (name === "editar-visual") return i.showModal(makeVisualModal());
 
@@ -328,8 +336,17 @@ async function executeCommand(i) {
   }
   if (name === "config-logs") {
     const channel = i.options.getChannel("canal");
-    await setJson("log_channel", channel.id);
-    return i.reply({ content: "Canal de logs configurado: " + channel.toString(), ephemeral: true });
+    const type = i.options.getString("tipo") || "general";
+    await setJson(type === "joinquit" ? "joinquit_log_channel" : "log_channel", channel.id);
+    return i.reply({ content: (type === "joinquit" ? "Canal de logs JOIN/QUIT MTA" : "Canal de logs general") + " configurado: " + channel.toString(), ephemeral: true });
+  }
+  if (name === "configsv") {
+    const ip = cleanText(i.options.getString("ip"), 253).replace(/^https?:\/\//i, "").replace(/\/$/, "");
+    const valid = net.isIP(ip) !== 0 || /^(?=.{1,253}$)(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}$/.test(ip);
+    if (!valid || /[\s/]/.test(ip)) return i.reply({ content: "Introduce una IP válida o dominio sin protocolo ni rutas.", ephemeral: true });
+    await setJson("server_ip", ip);
+    await refreshStatusPanel();
+    return i.reply({ content: "IP del servidor guardada y panel actualizado: " + ip, ephemeral: true });
   }
   if (name === "ticket-add-opcion") {
     const categories = await getJson("ticket_categories", DEFAULT_CATEGORIES);
@@ -546,9 +563,35 @@ app.post("/api/mta-status", async (req, res) => {
   }
   runtime.lastHeartbeatAt = Date.now();
   runtime.mta = { serverName, players, maxPlayers };
+  const visual = await getVisual();
+  for (const field of ["bannerStatus", "logoUrl", "bannerTickets"]) {
+    const candidate = cleanText(body[field], 500);
+    if (candidate && /^https:\/\//i.test(candidate)) visual[field] = candidate;
+  }
+  if (Object.keys(visual).length) await setJson("visual", visual);
   await setJson("mta_latest", { ...runtime.mta, receivedAt: runtime.lastHeartbeatAt });
   await Promise.all([refreshStatusPanel(), updatePresence()]);
   return res.status(200).json({ accepted: true, online: true });
+});
+app.post("/api/mta-event", async (req, res) => {
+  const secret = req.get("x-api-key") || "";
+  const expected = process.env.MTA_API_SECRET || process.env.API_SECRET;
+  if (!safeEqual(secret, expected)) return res.status(401).json({ error: "unauthorized" });
+  const event = req.body?.event;
+  const playerName = cleanText(req.body?.playerName, 48);
+  if (!["join", "quit"].includes(event) || !playerName) return res.status(400).json({ error: "invalid_payload" });
+  const logId = await getJson("joinquit_log_channel", null);
+  if (logId && client.isReady()) {
+    const channel = await client.channels.fetch(logId).catch(() => null);
+    if (channel?.isTextBased()) {
+      const embed = new EmbedBuilder().setColor(event === "join" ? 0x57F287 : 0xED4245)
+        .setTitle(event === "join" ? "MTA JOIN" : "MTA QUIT")
+        .setDescription("Jugador: " + playerName).setTimestamp(new Date())
+        .setFooter({ text: "DRIP X SHOP · MTA LOGS" });
+      await channel.send({ embeds: [embed], allowedMentions: { parse: [] } }).catch(() => null);
+    }
+  }
+  return res.status(200).json({ accepted: true });
 });
 app.use("/assets", express.static(path.join(__dirname, "..", "public"), { fallthrough: true, maxAge: "1h" }));
 
