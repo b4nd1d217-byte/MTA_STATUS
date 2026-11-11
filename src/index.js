@@ -197,12 +197,19 @@ async function refreshTicketPanel() {
   }
 }
 async function updatePresence() {
-  if (!client.user) return;
-  const online = runtime.lastHeartbeatAt > 0 && Date.now() - runtime.lastHeartbeatAt <= 60000;
+  // Discord presence represents the bot process, not the MTA game server.
+  // Keep the bot visibly ONLINE while the Discord gateway session is ready.
+  if (!client.isReady() || !client.user) return;
+  const mtaOnline = runtime.lastHeartbeatAt > 0 && Date.now() - runtime.lastHeartbeatAt <= 60000;
   const data = runtime.mta || {};
   client.user.setPresence({
-    status: online ? "online" : "idle",
-    activities: [{ name: online ? "MTA: " + (data.players ?? 0) + "/" + (data.maxPlayers ?? 0) : "MTA: OFFLINE", type: ActivityType.Playing }]
+    status: "online",
+    activities: [{
+      name: mtaOnline
+        ? "MTA: " + (data.players ?? 0) + "/" + (data.maxPlayers ?? 0)
+        : "MTA: esperando conexión",
+      type: ActivityType.Playing
+    }]
   });
 }
 async function recreateDeletedPanel(message) {
@@ -274,7 +281,7 @@ function makeVisualModal() {
   return modal;
 }
 function buildCommands() {
-  const textChannel = option => option.addChannelTypes(ChannelType.GuildText);
+  const textChannel = option => option.setChannelTypes(ChannelType.GuildText);
   return [
     new SlashCommandBuilder().setName("panel-status").setDescription("Publica o mueve el panel de estado MTA").addChannelOption(o => textChannel(o.setName("canal").setDescription("Canal del panel"))),
     new SlashCommandBuilder().setName("panel-tickets").setDescription("Publica o mueve el panel de tickets").addChannelOption(o => textChannel(o.setName("canal").setDescription("Canal del panel"))),
@@ -520,7 +527,7 @@ client.on("interactionCreate", async i => {
   }
 });
 client.on("messageDelete", message => { recreateDeletedPanel(message).catch(err => console.error("Panel recovery failed:", err.message)); });
-client.once("ready", async () => {
+client.once("clientReady", async () => {
   console.log("Discord bot connected as " + client.user.tag);
   try {
     await registerCommands();
